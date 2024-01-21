@@ -1,0 +1,59 @@
+query EventQuery {
+  event(id:%d) {
+      id
+      name
+    tournament {
+      id
+      name
+    }
+      sets(page:%d, perPage:%d, sortType:RECENT) {
+        nodes {
+					id
+          round
+          completedAt
+          fullRoundText
+          displayScore
+          winnerId
+          identifier
+          slots(includeByes:true) {
+              standing {
+                stats {
+                  score {
+                    value
+                    label
+                    displayValue
+                  }
+                }
+              }
+          	 entrant{
+                id
+                initialSeedNum
+                name
+                standing {
+                  placement
+                }
+              participants {
+                id
+                user {
+                  name
+                  id
+                }
+                gamerTag
+              }
+              }
+						seed {
+							seedNum
+            }
+          }
+          lPlacement
+          setGamesType
+          state
+          totalGames
+        }
+        pageInfo {
+          total
+          totalPages
+				}
+      }
+}
+}

@@ -1,0 +1,37 @@
+query UserQuery {
+  user(id:%d) {
+    id
+    bio
+    birthday
+    discriminator
+    name
+    player {
+      id
+      gamerTag
+      prefix
+    }
+    tournaments(query: {
+      perPage:%d
+    	page:%s
+    }){
+      nodes {
+				id
+        city
+        countryCode
+        lat
+        lng
+        mapsPlaceId
+        name
+        numAttendees
+        startAt
+        venueAddress
+        venueName
+        url
+      }
+      pageInfo{
+        total
+        totalPages
+      }
+    }
+	}
+}

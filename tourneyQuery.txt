@@ -1,0 +1,10 @@
+query TournyQuery {
+  tournament(id:%d) {
+    id
+    name
+    events(limit:50 filter:{videogameId:1}) {
+      id
+      name
+    }
+  }
+}
