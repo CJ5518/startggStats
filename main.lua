@@ -4,9 +4,10 @@
 --And so on
 
 
-local secret = require("secret");
-local json = require("json");
-local inspect = require("inspect");
+local secret = require("lib.secret");
+local json = require("lib.json");
+local inspect = require("lib.inspect");
+local argparse = require("lib.argparse");
 local tournaments = {};
 local users = {};
 local sets = {};
@@ -26,9 +27,9 @@ local function fileRead(filename)
 end
 
 --Read in the queries
-local baseUserTournyQuery = fileRead("userQuery.txt");
-local baseTournyEventQuery = fileRead("tourneyQuery.txt")
-local baseEventSetQuery = fileRead("eventQuery.txt")
+local baseUserTournyQuery = fileRead("queries/userQuery.txt");
+local baseTournyEventQuery = fileRead("queries/tourneyQuery.txt")
+local baseEventSetQuery = fileRead("queries/eventQuery.txt")
 
 function os.executef(command, ...)
 	os.execute(string.format(command, ...));
@@ -92,7 +93,7 @@ local function queryUser(userID)
 	local userDeats = {};
 
 	local function getStringRes(page)
-		return sendQuery("queryout.txt", string.format(baseUserTournyQuery, userID, 50, page));
+		return sendQuery(outFilename, string.format(baseUserTournyQuery, userID, 50, page));
 	end
 	local function getTotalPageNumber(obj)
 		return obj.data.user.tournaments.pageInfo.totalPages;
@@ -111,8 +112,6 @@ local function queryUser(userID)
 	userDeats.playerID = queryObjs[1].data.user.player.id;
 	userDeats.gamerTag = queryObjs[1].data.user.player.gamerTag;
 	userDeats.prefix = queryObjs[1].data.user.player.prefix;
-	userDeats.tournaments = {};
-	userDeats.sets = {};
 	users[queryObjs[1].data.user.id] = userDeats;
 	
 	--Extract the tournament details
@@ -120,7 +119,6 @@ local function queryUser(userID)
 		for tournyIdx = 1, #queryObjs[q].data.user.tournaments.nodes do
 			local tournyDeats = {};
 			local node = queryObjs[q].data.user.tournaments.nodes[tournyIdx];
-			userDeats.tournaments[#userDeats.tournaments+1] = node.id;
 			for i, v in pairs(node) do
 				tournyDeats[i] = v;
 			end
@@ -138,7 +136,7 @@ local function queryEvent(id)
 	printf("Querying event %d", id);
 
 	local function getStringRes(page)
-		return sendQuery("queryout.txt", string.format(baseEventSetQuery, id, page, 20));
+		return sendQuery(outFilename, string.format(baseEventSetQuery, id, page, 20));
 	end
 	local function getTotalPageNumber(obj)
 		return obj.data.event.sets.pageInfo.totalPages;
@@ -191,9 +189,9 @@ end
 
 
 --Load our db
-sets = json.decode(fileRead("sets.json"));
-tournaments = json.decode(fileRead("tournaments.json"));
-users = json.decode(fileRead("users.json"));
+sets = json.decode(fileRead("data/sets.json"));
+tournaments = json.decode(fileRead("data/tournaments.json"));
+users = json.decode(fileRead("data/users.json"));
 
 
 --Thinking about adding an argparse lib to handle this
@@ -221,7 +219,7 @@ if false then
 		file:close();
 	end
 
-	writeJsonFile("sets.json", sets);
-	writeJsonFile("users.json", users);
-	writeJsonFile("tournaments.json", tournaments);
+	writeJsonFile("data/sets.json", sets);
+	writeJsonFile("data/users.json", users);
+	writeJsonFile("data/tournaments.json", tournaments);
 end
