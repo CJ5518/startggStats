@@ -189,29 +189,39 @@ local function queryTourny(id)
 	tournaments[id].beenQueried = true;
 end
 
-for i, v in pairs(users) do
-	if not v.beenQueried then
-		queryUser(v.id);
-	end
-end
 
-for i,v in pairs(tournaments) do
-	if not v.beenQueried then
-		queryTourny(v.id);
-	end
-end
+--Load our db
+sets = json.decode(fileRead("sets.json"));
+tournaments = json.decode(fileRead("tournaments.json"));
+users = json.decode(fileRead("users.json"));
 
---Save our generated db
-local function writeJsonFile(name,object)
-	local file = io.open(name, "w");
-	local object2 = {};
-	for i, v in pairs(object) do
-		object2[tostring(i)] = v;
-	end
-	file:write(json.encode(object2));
-	file:close();
-end
 
-writeJsonFile("sets.json", sets);
-writeJsonFile("users.json", users);
-writeJsonFile("tournaments.json", tournaments);
+--Thinking about adding an argparse lib to handle this
+if false then
+	for i, v in pairs(users) do
+		if not v.beenQueried then
+			queryUser(v.id);
+		end
+	end
+
+	for i,v in pairs(tournaments) do
+		if not v.beenQueried then
+			queryTourny(v.id);
+		end
+	end
+
+	--Save our generated db
+	local function writeJsonFile(name,object)
+		local file = io.open(name, "w");
+		local object2 = {};
+		for i, v in pairs(object) do
+			object2[tostring(i)] = v;
+		end
+		file:write(json.encode(object2));
+		file:close();
+	end
+
+	writeJsonFile("sets.json", sets);
+	writeJsonFile("users.json", users);
+	writeJsonFile("tournaments.json", tournaments);
+end
