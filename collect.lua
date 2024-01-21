@@ -8,6 +8,8 @@ local secret = require("lib.secret");
 local json = require("lib.json");
 local inspect = require("lib.inspect");
 local argparse = require("lib.argparse");
+local loadData = require("lib.loadData");
+require("lib.common");
 local tournaments = {};
 local users = {};
 local sets = {};
@@ -15,31 +17,28 @@ local sets = {};
 users[secret.myUserID] = {id=secret.myUserID, beenQueried=false};
 local outFilename = "queryout.txt";
 
+local parser = argparse("collect", "Collects startgg stats");
+parser:flag("-r --read", "Read in the local db");
+parser:option("-b --build", "Build the db (from scratch if -r not given) with a given number of passes", 1, tonumber);
+parser:flag("-v --verbose", "Be verbose");
+
+local args = parser:parse();
 
 local apiKey = secret.apiKey;
 local queryLink = "https://api.start.gg/gql/alpha";
 
-local function fileRead(filename)
-	local file = io.open(filename, "r");
-	local text = file:read("*a");
-	file:close();
-	return text;
-end
 
 --Read in the queries
 local baseUserTournyQuery = fileRead("queries/userQuery.txt");
 local baseTournyEventQuery = fileRead("queries/tourneyQuery.txt")
 local baseEventSetQuery = fileRead("queries/eventQuery.txt")
 
-function os.executef(command, ...)
-	os.execute(string.format(command, ...));
+local printfv;
+if args.verbose then
+	printfv = printf
+else
+	printfv = function() end
 end
-
-function printf(str, ...)
-	print(string.format(str, ...));
-end
-
-
 
 local function sendQuery(outFilename, query, operationName, variables)
 	local queryJson = json.encode({["query"]=query, ["operationName"]=operationName, ["variables"]=variables});
@@ -54,11 +53,12 @@ local function queryErrorLoopBasic(wayToGetStringResFunc, getTotalPageNum)
 	local queryObjs = {};
 
 	for page = 1, 500 do
-		
+		printfv("On page %d\n", page);
 		local stringRes, obj;
 		local errors = 0;
 		while true do
 			stringRes = wayToGetStringResFunc(page);
+			printfv(stringRes);
 			obj = json.decode(stringRes);
 			if obj.success == false then
 				printf("Think we got rate limited, %s", stringRes);
@@ -90,8 +90,7 @@ end
 
 local function queryUser(userID)
 	printf("Querying user %d", userID);
-	local userDeats = {};
-
+	
 	local function getStringRes(page)
 		return sendQuery(outFilename, string.format(baseUserTournyQuery, userID, 50, page));
 	end
@@ -101,8 +100,10 @@ local function queryUser(userID)
 	
 	--Get all a users tournys
 	local queryObjs = queryErrorLoopBasic(getStringRes, getTotalPageNumber);
-
+	
 	printf("Got all the pages for user %d", userID);
+
+	local userDeats = users[queryObjs[1].data.user.id];
 
 	--Extract user details
 	userDeats.id = queryObjs[1].data.user.id;
@@ -112,7 +113,9 @@ local function queryUser(userID)
 	userDeats.playerID = queryObjs[1].data.user.player.id;
 	userDeats.gamerTag = queryObjs[1].data.user.player.gamerTag;
 	userDeats.prefix = queryObjs[1].data.user.player.prefix;
-	users[queryObjs[1].data.user.id] = userDeats;
+	if not userDeats.sets then
+		userDeats.sets = {};
+	end
 	
 	--Extract the tournament details
 	for q = 1, #queryObjs do
@@ -189,37 +192,45 @@ end
 
 
 --Load our db
-sets = json.decode(fileRead("data/sets.json"));
-tournaments = json.decode(fileRead("data/tournaments.json"));
-users = json.decode(fileRead("data/users.json"));
+if args.read then
+	sets, tournaments, users = loadData();
+end
 
-
---Thinking about adding an argparse lib to handle this
-if false then
-	for i, v in pairs(users) do
-		if not v.beenQueried then
-			queryUser(v.id);
+--Then build
+if args.build then
+	for q = 1, args.build do
+		for i, v in pairs(users) do
+			if not v.beenQueried then
+				queryUser(v.id);
+			end
 		end
-	end
 
-	for i,v in pairs(tournaments) do
-		if not v.beenQueried then
-			queryTourny(v.id);
+		for i,v in pairs(tournaments) do
+			if not v.beenQueried then
+				while true do
+					local suc, res = pcall(queryTourny, v.id);
+					if suc then
+						break
+					else
+						print(suc, res);
+					end
+				end
+			end
 		end
-	end
 
-	--Save our generated db
-	local function writeJsonFile(name,object)
-		local file = io.open(name, "w");
-		local object2 = {};
-		for i, v in pairs(object) do
-			object2[tostring(i)] = v;
+		--Save our generated db
+		local function writeJsonFile(name,object)
+			local file = io.open(name, "w");
+			local object2 = {};
+			for i, v in pairs(object) do
+				object2[tostring(i)] = v;
+			end
+			file:write(json.encode(object2));
+			file:close();
 		end
-		file:write(json.encode(object2));
-		file:close();
-	end
 
-	writeJsonFile("data/sets.json", sets);
-	writeJsonFile("data/users.json", users);
-	writeJsonFile("data/tournaments.json", tournaments);
+		writeJsonFile("data/sets.json", sets);
+		writeJsonFile("data/users.json", users);
+		writeJsonFile("data/tournaments.json", tournaments);
+	end
 end
