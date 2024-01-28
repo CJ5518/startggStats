@@ -34,10 +34,13 @@ local baseTournyEventQuery = fileRead("queries/tourneyQuery.txt")
 local baseEventSetQuery = fileRead("queries/eventQuery.txt")
 
 local printfv;
+local printv;
 if args.verbose then
-	printfv = printf
+	printfv = printf;
+	printv = print;
 else
 	printfv = function() end
+	printv = printfv;
 end
 
 local function sendQuery(outFilename, query, operationName, variables)
@@ -58,7 +61,7 @@ local function queryErrorLoopBasic(wayToGetStringResFunc, getTotalPageNum)
 		local errors = 0;
 		while true do
 			stringRes = wayToGetStringResFunc(page);
-			printfv(stringRes);
+			printv(stringRes);
 			obj = json.decode(stringRes);
 			if obj.success == false then
 				printf("Think we got rate limited, %s", stringRes);
@@ -92,7 +95,7 @@ local function queryUser(userID)
 	printf("Querying user %d", userID);
 	
 	local function getStringRes(page)
-		return sendQuery(outFilename, string.format(baseUserTournyQuery, userID, 50, page));
+		return sendQuery(outFilename, string.format(baseUserTournyQuery, userID, 15, page));
 	end
 	local function getTotalPageNumber(obj)
 		return obj.data.user.tournaments.pageInfo.totalPages;
@@ -139,7 +142,7 @@ local function queryEvent(id)
 	printf("Querying event %d", id);
 
 	local function getStringRes(page)
-		return sendQuery(outFilename, string.format(baseEventSetQuery, id, page, 20));
+		return sendQuery(outFilename, string.format(baseEventSetQuery, id, page, 10));
 	end
 	local function getTotalPageNumber(obj)
 		return obj.data.event.sets.pageInfo.totalPages;
@@ -197,6 +200,8 @@ if args.read then
 end
 
 --Then build
+local startTime = os.time();
+
 if args.build then
 	for q = 1, args.build do
 		for i, v in pairs(users) do
@@ -204,10 +209,20 @@ if args.build then
 				queryUser(v.id);
 			end
 		end
-
+		local tournyCount = 0;
 		for i,v in pairs(tournaments) do
 			if not v.beenQueried then
+				tournyCount = tournyCount + 1;
+			end
+		end
+		local remainTournyCount = tournyCount;
+		
+		for i,v in pairs(tournaments) do
+			if not v.beenQueried then
+				printf("About to do a tournament, we have %d to go of %d",remainTournyCount, tournyCount);
+					remainTournyCount = remainTournyCount - 1;
 				while true do
+					--Sometimes the query just fails and we get a json error
 					local suc, res = pcall(queryTourny, v.id);
 					if suc then
 						break
@@ -234,3 +249,5 @@ if args.build then
 		writeJsonFile("data/tournaments.json", tournaments);
 	end
 end
+printf("Took %d seconds to do this thing, and in os.clock() it's %f", os.time() - startTime, os.clock());
+
