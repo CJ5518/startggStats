@@ -27,5 +27,50 @@ gamerTag (also from user.player)
 prefix
 tournamentIDs ([] array of tourny IDs)
 sets ([] array of set IDs requires build set connections to be ran)
-beenQueried
+```
+### Tournament objects
+```
+id
+name
+updatedAt
+city
+countryCode
+lat
+lng
+mapsPlaceId
+numAttendees
+startAt
+venueAddress
+venueName
+url
+eventIDs ([] array of event ids, not particularily useful tbh)
+sets ([] array of {} set objects)
+```
+### Set objects
+```
+id
+round
+completedAt
+fullRoundText
+displayScore
+winnerId (pretty sure this doesn't point to a user, probably a player or entrant)
+identifier
+lPlacement
+setGamesType
+state
+totalGames
+slots ([] array of {} slot objects)
+  seedNum (from seed.seedNum)
+  scoreValue (from standing.stats.score.value)
+  scoreLabel (from standing.stats.score.label)
+  scoreDisplayValue (from standing.stats.score.displayValue)
+  entrant ({} entrant object)
+    id
+    initialSeedNum (maybe different? who knows)
+    name
+    participant ({} participant object) note that in doubles, there would be 2 participants. I refuse to deal with that, so only one :)
+      gamerTag
+      id
+      userName (from user.name)
+      userID (from user.id)
 ```
