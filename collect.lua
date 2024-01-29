@@ -8,21 +8,9 @@ local secret = require("lib.secret");
 local json = require("lib.json");
 local inspect = require("lib.inspect");
 local argparse = require("lib.argparse");
-local loadData = require("lib.loadData");
 require("lib.common");
-local tournaments = {};
-local users = {};
-local sets = {};
 
-users[secret.myUserID] = {id=secret.myUserID, beenQueried=false};
 local outFilename = "queryout.txt";
-
-local parser = argparse("collect", "Collects startgg stats");
-parser:flag("-r --read", "Read in the local db");
-parser:option("-b --build", "Build the db (from scratch if -r not given) with a given number of passes", 1, tonumber);
-parser:flag("-v --verbose", "Be verbose");
-
-local args = parser:parse();
 
 local apiKey = secret.apiKey;
 local queryLink = "https://api.start.gg/gql/alpha";
@@ -33,9 +21,11 @@ local baseUserTournyQuery = fileRead("queries/userQuery.txt");
 local baseTournyEventQuery = fileRead("queries/tourneyQuery.txt")
 local baseEventSetQuery = fileRead("queries/eventQuery.txt")
 
+
+--Verbose printing functions
 local printfv;
 local printv;
-if args.verbose then
+if false then
 	printfv = printf;
 	printv = print;
 else
@@ -52,6 +42,7 @@ local function sendQuery(outFilename, query, operationName, variables)
 	return fileRead(outFilename);
 end
 
+--Does the paged query loop and handles SOME errors
 local function queryErrorLoopBasic(wayToGetStringResFunc, getTotalPageNum)
 	local queryObjs = {};
 
@@ -91,6 +82,8 @@ local function queryErrorLoopBasic(wayToGetStringResFunc, getTotalPageNum)
 	return queryObjs;
 end
 
+
+--Returns a user obj
 local function queryUser(userID)
 	printf("Querying user %d", userID);
 	
@@ -106,7 +99,7 @@ local function queryUser(userID)
 	
 	printf("Got all the pages for user %d", userID);
 
-	local userDeats = users[queryObjs[1].data.user.id];
+	local userDeats = {};
 
 	--Extract user details
 	userDeats.id = queryObjs[1].data.user.id;
@@ -116,28 +109,20 @@ local function queryUser(userID)
 	userDeats.playerID = queryObjs[1].data.user.player.id;
 	userDeats.gamerTag = queryObjs[1].data.user.player.gamerTag;
 	userDeats.prefix = queryObjs[1].data.user.player.prefix;
-	if not userDeats.sets then
-		userDeats.sets = {};
-	end
+	userDeats.tournamentIDs = {};
 	
 	--Extract the tournament details
 	for q = 1, #queryObjs do
 		for tournyIdx = 1, #queryObjs[q].data.user.tournaments.nodes do
-			local tournyDeats = {};
 			local node = queryObjs[q].data.user.tournaments.nodes[tournyIdx];
-			for i, v in pairs(node) do
-				tournyDeats[i] = v;
-			end
-			tournaments[node.id] = tournyDeats;
-			tournyDeats.events = {};
-			tournyDeats.sets = {};
-
-			tournyDeats.beenQueried = false;
+			userDeats.tournamentIDs[#userDeats.tournamentIDs+1] = node.id;
 		end
 	end
-	userDeats.beenQueried = true;
+	return userDeats;
 end
 
+
+--Returns a list of sets at an event
 local function queryEvent(id)
 	printf("Querying event %d", id);
 
@@ -150,104 +135,113 @@ local function queryEvent(id)
 
 	--All queries for this event
 	local queryObjs = queryErrorLoopBasic(getStringRes, getTotalPageNumber);
+
+	local setsRet = {};
 	
-	--For every set
+	--For every paged query
 	for q = 1, #queryObjs do
 		local obj = queryObjs[q];
-		local tournyID = obj.data.event.tournament.id;
+		--For every set
 		for i, v in pairs(obj.data.event.sets.nodes) do
-			if v.completedAt and #v.slots[1].entrant.participants == 1 then
-				sets[v.id] = v;
-				tournaments[tournyID].sets[#tournaments[tournyID].sets+1] = v.id;
+			local currSet = {};
+			local setIsGood = true;
+			
+			--Basic data
+			currSet.id = v.id;
+			currSet.round = v.round;
+			currSet.completedAt = v.completedAt;
+			currSet.fullRoundText = v.fullRoundText;
+			currSet.displayScore = v.displayScore;
+			currSet.winnerId = v.winnerId;
+			currSet.identifier = v.identifier;
+			currSet.lPlacement = v.lPlacement;
+			currSet.setGamesType = v.setGamesType;
+			currSet.state = v.state;
+			currSet.totalGames = v.totalGames;
+			
+			currSet.slots = {};
+			--There should really only be 2 slots
+			for _, slot in pairs(v.slots) do
+				local currSlot = {};
+				currSlot.seedNum = slot.seed.seedNum;
+				currSlot.scoreValue = slot.standing.stats.score.value;
+				currSlot.scoreLabel = slot.standing.stats.score.label;
+				currSlot.scoreDisplayValue = slot.standing.stats.score.displayValue;
 
-				--Add sets to users, and make new unpopulated users if need be
-				for i2, v2 in pairs(v.slots) do
-					if v2.entrant.participants[1].user then
-						uid = v2.entrant.participants[1].user.id
-						if not users[uid] then
-							users[uid] = {}
-							users[uid].id = uid;
-							users[uid].gamerTag = v2.entrant.participants[1].gamerTag;
-							users[uid].sets = {v.id};
-						else
-							users[uid].sets[#users[uid].sets+1] = v.id;
-						end
-					end
+				currSlot.entrant = {};
+				currSlot.entrant.id = slot.entrant.id;
+				currSlot.entrant.initialSeedNum = slot.entrant.initialSeedNum
+				currSlot.entrant.name = slot.entrant.name;
+
+				if #slot.entrant.participants ~= 1 then
+					--Doubles, abort immediately
+					setIsGood = false;
+					break;
 				end
+
+				currSlot.entrant.participant = {};
+				currSlot.entrant.participant.gamerTag = slot.entrant.participants[1].gamerTag;
+				currSlot.entrant.participant.id = slot.entrant.participants[1].id;
+				currSlot.entrant.participant.userName = slot.entrant.participants[1].user.name;
+				currSlot.entrant.participant.userID = slot.entrant.participants[1].user.id;
+
+				currSet.slots[#currSet.slots+1] = currSlot;
+			end
+
+			if setIsGood then
+				setsRet[#setsRet+1] = currSet;
 			end
 		end
 	end
+	return setsRet;
 end
 
+--Returns a full tournament object
 local function queryTourny(id)
 	printf("Querying tourny %d", id);
-	
+	local tournObj = {};
+
 	local obj = json.decode(sendQuery(outFilename, string.format(baseTournyEventQuery, id)));
+
+	tournObj.id = obj.data.tournament.id;
+	tournObj.name = obj.data.tournament.name;
+	tournObj.updatedAt = obj.data.tournament.updatedAt;
+	tournObj.city = obj.data.tournament.city;
+	tournObj.countryCode = obj.data.tournament.countryCode;
+	tournObj.lat = obj.data.tournament.lat;
+	tournObj.lng = obj.data.tournament.lng;
+	tournObj.mapsPlaceId = obj.data.tournament.mapsPlaceId;
+	tournObj.numAttendees = obj.data.tournament.numAttendees;
+	tournObj.startAt = obj.data.tournament.startAt;
+	tournObj.venueAddress = obj.data.tournament.venueAddress;
+	tournObj.venueName = obj.data.tournament.venueName;
+	tournObj.url = obj.data.tournament.url;
+
+	tournObj.eventIDs = {};
+	tournObj.sets = {};
+
 	local events = obj.data.tournament.events;
 
 	for i, v in pairs(events) do
-		tournaments[id].events[#tournaments[id].events+1] = v.id;
-		queryEvent(v.id);
+		tournObj.eventIDs[#tournObj.eventIDs+1] = v.id;
+		local eventRes = queryEvent(v.id);
+		for i, v in ipairs(eventRes) do
+			tournObj.sets[#tournObj.sets+1] = v;
+		end
 	end
-
-	tournaments[id].beenQueried = true;
+	return tournObj;
 end
 
 
---Load our db
-if args.read then
-	sets, tournaments, users = loadData();
+local collect = {};
+
+function collect.doUser(id)
+	fileWrite("data/users/" .. tostring(id) .. ".json", json.encode(queryUser(id)));
 end
 
---Then build
-local startTime = os.time();
-
-if args.build then
-	for q = 1, args.build do
-		for i, v in pairs(users) do
-			if not v.beenQueried then
-				queryUser(v.id);
-			end
-		end
-		local tournyCount = 0;
-		for i,v in pairs(tournaments) do
-			if not v.beenQueried then
-				tournyCount = tournyCount + 1;
-			end
-		end
-		local remainTournyCount = tournyCount;
-		
-		for i,v in pairs(tournaments) do
-			if not v.beenQueried then
-				printf("About to do a tournament, we have %d to go of %d",remainTournyCount, tournyCount);
-					remainTournyCount = remainTournyCount - 1;
-				while true do
-					--Sometimes the query just fails and we get a json error
-					local suc, res = pcall(queryTourny, v.id);
-					if suc then
-						break
-					else
-						print(suc, res);
-					end
-				end
-			end
-		end
-
-		--Save our generated db
-		local function writeJsonFile(name,object)
-			local file = io.open(name, "w");
-			local object2 = {};
-			for i, v in pairs(object) do
-				object2[tostring(i)] = v;
-			end
-			file:write(json.encode(object2));
-			file:close();
-		end
-
-		writeJsonFile("data/sets.json", sets);
-		writeJsonFile("data/users.json", users);
-		writeJsonFile("data/tournaments.json", tournaments);
-	end
+function collect.doTourny(id)
+	fileWrite("data/tournaments/" .. tostring(id) .. ".json", json.encode(queryTourny(id)));
 end
-printf("Took %d seconds to do this thing, and in os.clock() it's %f", os.time() - startTime, os.clock());
 
+
+return collect;

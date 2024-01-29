@@ -2,10 +2,6 @@ query EventQuery {
   event(id:%d) {
       id
       name
-    tournament {
-      id
-      name
-    }
       sets(page:%d, perPage:%d, sortType:RECENT) {
         nodes {
 					id

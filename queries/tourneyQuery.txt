@@ -2,6 +2,17 @@ query TournyQuery {
   tournament(id:%d) {
     id
     name
+    updatedAt
+    city
+    countryCode
+    lat
+    lng
+    mapsPlaceId
+    numAttendees
+    startAt
+    venueAddress
+    venueName
+    url
     events(limit:50 filter:{videogameId:1}) {
       id
       name

@@ -7,6 +7,12 @@ function fileRead(filename)
 	return text;
 end
 
+function fileWrite(filename, content)
+	local file = io.open(filename, "w");
+	file:write(content);
+	file:close();
+end
+
 function os.executef(command, ...)
 	os.execute(string.format(command, ...));
 end

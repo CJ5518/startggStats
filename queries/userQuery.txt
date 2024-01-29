@@ -16,17 +16,7 @@ query UserQuery {
     }){
       nodes {
 				id
-        city
-        countryCode
-        lat
-        lng
-        mapsPlaceId
         name
-        numAttendees
-        startAt
-        venueAddress
-        venueName
-        url
       }
       pageInfo{
         total
