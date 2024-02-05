@@ -2,3 +2,4 @@ secret.lua
 queryout.txt
 *.json
 data/
+lfs.dll

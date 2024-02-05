@@ -1,7 +1,4 @@
---Query users to get tournies,
---Query the tournies to get the melee singles sets
---Then take the UserIDs from the sets to build a profile on the next set of users
---And so on
+--Queries a user or tournament by ID
 
 
 local secret = require("lib.secret");
@@ -158,34 +155,40 @@ local function queryEvent(id)
 			currSet.setGamesType = v.setGamesType;
 			currSet.state = v.state;
 			currSet.totalGames = v.totalGames;
-			
-			currSet.slots = {};
-			--There should really only be 2 slots
-			for _, slot in pairs(v.slots) do
-				local currSlot = {};
-				currSlot.seedNum = slot.seed.seedNum;
-				currSlot.scoreValue = slot.standing.stats.score.value;
-				currSlot.scoreLabel = slot.standing.stats.score.label;
-				currSlot.scoreDisplayValue = slot.standing.stats.score.displayValue;
 
-				currSlot.entrant = {};
-				currSlot.entrant.id = slot.entrant.id;
-				currSlot.entrant.initialSeedNum = slot.entrant.initialSeedNum
-				currSlot.entrant.name = slot.entrant.name;
+			--If the set isn't completed
+			if not currSet.completedAt then
+				setIsGood = false;
+			else
+				currSet.slots = {};
+				--There should really only be 2 slots
+				for _, slot in pairs(v.slots) do
+					local currSlot = {};
+					currSlot.seedNum = slot.seed.seedNum;
+					currSlot.scoreValue = slot.standing.stats.score.value;
+					currSlot.scoreLabel = slot.standing.stats.score.label;
+					currSlot.scoreDisplayValue = slot.standing.stats.score.displayValue;
 
-				if #slot.entrant.participants ~= 1 then
-					--Doubles, abort immediately
-					setIsGood = false;
-					break;
+					currSlot.entrant = {};
+					currSlot.entrant.id = slot.entrant.id;
+					currSlot.entrant.initialSeedNum = slot.entrant.initialSeedNum
+					currSlot.entrant.name = slot.entrant.name;
+
+					if #slot.entrant.participants ~= 1 then
+						--Doubles, abort immediately
+						setIsGood = false;
+						break;
+					end
+					currSlot.entrant.participant = {};
+					currSlot.entrant.participant.gamerTag = slot.entrant.participants[1].gamerTag;
+					currSlot.entrant.participant.id = slot.entrant.participants[1].id;
+					if slot.entrant.participants[1].user then
+						currSlot.entrant.participant.userName = slot.entrant.participants[1].user.name;
+						currSlot.entrant.participant.userID = slot.entrant.participants[1].user.id;
+					end
+
+					currSet.slots[#currSet.slots+1] = currSlot;
 				end
-
-				currSlot.entrant.participant = {};
-				currSlot.entrant.participant.gamerTag = slot.entrant.participants[1].gamerTag;
-				currSlot.entrant.participant.id = slot.entrant.participants[1].id;
-				currSlot.entrant.participant.userName = slot.entrant.participants[1].user.name;
-				currSlot.entrant.participant.userID = slot.entrant.participants[1].user.id;
-
-				currSet.slots[#currSet.slots+1] = currSlot;
 			end
 
 			if setIsGood then
@@ -231,6 +234,11 @@ local function queryTourny(id)
 	end
 	return tournObj;
 end
+
+--[[
+
+sets will likely errro out the ass because we do not check completedAt
+]]
 
 
 local collect = {};
