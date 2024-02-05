@@ -71,6 +71,6 @@ slots ([] array of {} slot objects)
     participant ({} participant object) note that in doubles, there would be 2 participants. I refuse to deal with that, so only one :)
       gamerTag
       id
-      userName (from user.name)
-      userID (from user.id)
+      userName (from user.name) (won't be there if the playe didn't register with a startgg account)
+      userID (from user.id) (same for userName, won't be there if the player doesn't have an account)
 ```
