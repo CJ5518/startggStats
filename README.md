@@ -16,7 +16,7 @@ data/
   tournaments/
     54362892.json (id.json)
 ```
-### User objects
+### User Objects
 ```
 id
 bio
@@ -27,8 +27,9 @@ gamerTag (also from user.player)
 prefix
 tournamentIDs ([] array of tourny IDs)
 sets ([] array of set IDs requires build set connections to be ran)
+images ([] array of {} image objects)
 ```
-### Tournament objects
+### Tournament Objects
 ```
 id
 name
@@ -45,8 +46,9 @@ venueName
 url
 eventIDs ([] array of event ids, not particularily useful tbh)
 sets ([] array of {} set objects)
+images ([] array of {} image objects)
 ```
-### Set objects
+### Set Objects
 ```
 id
 round
@@ -73,4 +75,13 @@ slots ([] array of {} slot objects)
       id
       userName (from user.name) (won't be there if the playe didn't register with a startgg account)
       userID (from user.id) (same for userName, won't be there if the player doesn't have an account)
+```
+### Image Objects
+```
+url
+id
+type (Known types: "profile")
+height
+width
+ratio
 ```
