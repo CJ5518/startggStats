@@ -1,4 +1,4 @@
---Common function used basically everywhere
+--Common functions used basically everywhere
 
 function fileRead(filename)
 	local file = io.open(filename, "r");

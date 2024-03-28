@@ -5,6 +5,14 @@ query UserQuery {
     birthday
     discriminator
     name
+    images{
+      url
+      id
+      type
+      height
+      width
+      ratio
+    }
     player {
       id
       gamerTag

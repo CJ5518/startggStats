@@ -17,5 +17,13 @@ query TournyQuery {
       id
       name
     }
+    images{
+      url
+      id
+      type
+      height
+      width
+      ratio
+    }
   }
 }

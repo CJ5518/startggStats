@@ -15,14 +15,14 @@ local queryLink = "https://api.start.gg/gql/alpha";
 
 --Read in the queries
 local baseUserTournyQuery = fileRead("queries/userQuery.txt");
-local baseTournyEventQuery = fileRead("queries/tourneyQuery.txt")
-local baseEventSetQuery = fileRead("queries/eventQuery.txt")
+local baseTournyEventQuery = fileRead("queries/tourneyQuery.txt");
+local baseEventSetQuery = fileRead("queries/eventQuery.txt");
 
 
 --Verbose printing functions
 local printfv;
 local printv;
-if false then
+if true then
 	printfv = printf;
 	printv = print;
 else
@@ -50,9 +50,20 @@ local function queryErrorLoopBasic(wayToGetStringResFunc, getTotalPageNum)
 		while true do
 			stringRes = wayToGetStringResFunc(page);
 			printv(stringRes);
-			obj = json.decode(stringRes);
+			--Sometimes the endpoint returns html data because of course it does
+			local succ, errorObj = pcall(json.decode, stringRes);
+			if not succ then
+				obj = {};
+				obj.success = false;
+				obj.decodeFailed = true;
+			else
+				obj = errorObj;
+			end
 			if obj.success == false then
 				printf("Think we got rate limited, %s", stringRes);
+				if obj.decodeFailed then
+					print("Actually json decode failed for some reason, html?");
+				end
 				errors = errors + 1;
 				if errors == 8 then
 					print("Prolly not a rate limit issue at this point, exiting the program");
@@ -107,6 +118,13 @@ local function queryUser(userID)
 	userDeats.gamerTag = queryObjs[1].data.user.player.gamerTag;
 	userDeats.prefix = queryObjs[1].data.user.player.prefix;
 	userDeats.tournamentIDs = {};
+
+	--Extract images (if any)
+	userDeats.images = {};
+	for q=1, #queryObjs[1].data.user.images do
+		local img = queryObjs[1].data.user.images[q];
+		userDeats.images[q] = img;
+	end
 	
 	--Extract the tournament details
 	for q = 1, #queryObjs do
@@ -203,8 +221,16 @@ end
 local function queryTourny(id)
 	printf("Querying tourny %d", id);
 	local tournObj = {};
+	local stringRes = sendQuery(outFilename, string.format(baseTournyEventQuery, id));
+	printv(stringRes);
 
-	local obj = json.decode(sendQuery(outFilename, string.format(baseTournyEventQuery, id)));
+	local succ, obj = pcall(json.decode, stringRes);
+	if not succ or (succ and (obj.success == false)) then
+		print("Query tourny json decode failed or something idk, sleeping 10 seconds");
+		os.execute("sleep 10");
+		return queryTourny(id);
+	end
+
 
 	tournObj.id = obj.data.tournament.id;
 	tournObj.name = obj.data.tournament.name;
@@ -220,6 +246,13 @@ local function queryTourny(id)
 	tournObj.venueName = obj.data.tournament.venueName;
 	tournObj.url = obj.data.tournament.url;
 
+	--Extract images (if any)
+	tournObj.images = {};
+	for q=1, #obj.data.tournament.images do
+		local img = obj.data.tournament.images[q];
+		tournObj.images[q] = img;
+	end
+
 	tournObj.eventIDs = {};
 	tournObj.sets = {};
 
@@ -234,11 +267,6 @@ local function queryTourny(id)
 	end
 	return tournObj;
 end
-
---[[
-
-sets will likely errro out the ass because we do not check completedAt
-]]
 
 
 local collect = {};
